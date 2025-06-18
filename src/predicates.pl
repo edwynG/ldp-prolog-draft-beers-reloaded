@@ -1,5 +1,5 @@
 # Modulo para funciones del proyecto
-:- module(predicates, [initialBarrels/3, validate_barrel/5, addBeer/3, findSolution/3]). 
+:- module(predicates, [initialBarrels/3, validate_barrel/5, addBeer/3]). 
 
 % Declaramos barrel/3 como dinámico
 :- dynamic barrel/3.
@@ -35,15 +35,19 @@ validate_barrel(_ID, Cap, Beer, ValidCap, ValidBeer) :-
     ;   ValidCap = Cap, ValidBeer = 0
     ).
 
+barrel("A", 10, 3). 
+barrel("B", 7, 3).   
+barrel("C", 4, 0).
 
 addBeer(Barrel, Beer, Transfer) :-
+    string(Barrel),
+    number(Beer),
+    var(Transfer),
+    Beer >= 0,
+    not(Barrel = "B"),
     barrel(Barrel, MaxCapacity, CurrentAmount),
     NewAmount is CurrentAmount + Beer,
-    (
-        Beer < 0 
-    ->  
-        Transfer = 0 
-    ;   
+    (  
         NewAmount =< MaxCapacity                    
     ->
         retract(barrel(Barrel, MaxCapacity, CurrentAmount)), 
@@ -55,13 +59,3 @@ addBeer(Barrel, Beer, Transfer) :-
         assert(barrel(Barrel, MaxCapacity, MaxCapacity)), 
         Transfer = Excess                      
     ).
-
-barrel("A", 10, 3). 
-barrel("B", 7, 3).   
-barrel("C", 4, 0).
-
-findSolution(Goal, SolutionType, Result) :- true.
-
-
-
-
