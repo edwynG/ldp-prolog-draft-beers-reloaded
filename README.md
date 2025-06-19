@@ -41,3 +41,4 @@ Para lograr compilar el proyecto, haremos uso de un archivo **makefile** el cual
 
 > [!Note]
 > **make** es la herramienta que se utiliza para ejecutar archivos **makefile**. En windows este viene junto con la instalación de **C/C++**. Y si estas en linux este viene junto con el entorno **Unix**.
+
