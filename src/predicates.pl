@@ -36,7 +36,7 @@ validate_barrel(_ID, Cap, Beer, ValidCap, ValidBeer) :-
     ).
 
 barrel("A", 10, 3). 
-barrel("B", 7, 3).   
+barrel("B", 7, 0).   
 barrel("C", 4, 0).
 
 addBeer(Barrel, Beer, Transfer) :-
@@ -45,17 +45,40 @@ addBeer(Barrel, Beer, Transfer) :-
     var(Transfer),
     Beer >= 0,
     not(Barrel = "B"),
-    barrel(Barrel, MaxCapacity, CurrentAmount),
-    NewAmount is CurrentAmount + Beer,
-    (  
-        NewAmount =< MaxCapacity                    
-    ->
-        retract(barrel(Barrel, MaxCapacity, CurrentAmount)), 
-        assert(barrel(Barrel, MaxCapacity, NewAmount)),      
-        Transfer = 0                                  
-    ;   
-        Excess is NewAmount - MaxCapacity,                    
-        retract(barrel(Barrel, MaxCapacity, CurrentAmount)),
-        assert(barrel(Barrel, MaxCapacity, MaxCapacity)), 
-        Transfer = Excess                      
+    barrel(Barrel, MaxA, CurrA),
+    NewA is CurrA + Beer,
+    (   NewA =< MaxA
+    ->  retract(barrel(Barrel, MaxA, CurrA)),
+        assertz(barrel(Barrel, MaxA, NewA)),
+        Transfer = 0
+    ;   Overflow is NewA - MaxA,
+        retract(barrel(Barrel, MaxA, CurrA)),
+        assertz(barrel(Barrel, MaxA, MaxA)),
+        barrel("B", MaxB, CurrB),
+        NewB is CurrB + Overflow,
+        (   NewB =< MaxB
+        ->  retract(barrel("B", MaxB, CurrB)),
+            assertz(barrel("B", MaxB, NewB))
+        ;   OverflowB is NewB - MaxB,
+            retract(barrel("B", MaxB, CurrB)),
+            assertz(barrel("B", MaxB, MaxB)),
+            barrel("A", MaxA2, CurrA2),
+            barrel("C", MaxC, CurrC),
+            (   CurrA2 =< CurrC
+            ->  MinBarrel = "A", MinMax = MaxA2, MinCurr = CurrA2
+            ;   MinBarrel = "C", MinMax = MaxC, MinCurr = CurrC
+            ),
+            NewMin is MinCurr + OverflowB,
+            (   NewMin =< MinMax
+            ->  retract(barrel(MinBarrel, MinMax, MinCurr)),
+                assertz(barrel(MinBarrel, MinMax, NewMin))
+            ;   retract(barrel(MinBarrel, MinMax, MinCurr)),
+                assertz(barrel(MinBarrel, MinMax, MinMax))
+            )
+        ),
+        Transfer = Overflow
     ).
+
+
+
+
