@@ -55,15 +55,15 @@ addBeer(Barrel, Beer, Transfer) :-
     var(Transfer),
     Beer >= 0,
     not(Barrel = "B"),
-    barrel(Barrel, MaxA, CurrA),
-    NewA is CurrA + Beer,
-    (   NewA =< MaxA
-    ->  retract(barrel(Barrel, MaxA, CurrA)),
-        assertz(barrel(Barrel, MaxA, NewA)),
+    barrel(Barrel, Max, Curr),
+    New is Curr + Beer,
+    (   New =< Max
+    ->  retract(barrel(Barrel, Max, Curr)),
+        assertz(barrel(Barrel, Max, New)),
         Transfer = 0
-    ;   Overflow is NewA - MaxA,
-        retract(barrel(Barrel, MaxA, CurrA)),
-        assertz(barrel(Barrel, MaxA, MaxA)),
+    ;   Overflow is New - Max,
+        retract(barrel(Barrel, Max, Curr)),
+        assertz(barrel(Barrel, Max, Max)),
         barrel("B", MaxB, CurrB),
         NewB is CurrB + Overflow,
         (   NewB =< MaxB
@@ -72,10 +72,10 @@ addBeer(Barrel, Beer, Transfer) :-
         ;   OverflowB is NewB - MaxB,
             retract(barrel("B", MaxB, CurrB)),
             assertz(barrel("B", MaxB, MaxB)),
-            barrel("A", MaxA2, CurrA2),
+            barrel("A", MaxA, CurrA),
             barrel("C", MaxC, CurrC),
-            (   CurrA2 =< CurrC
-            ->  MinBarrel = "A", MinMax = MaxA2, MinCurr = CurrA2
+            (   CurrA =< CurrC
+            ->  MinBarrel = "A", MinMax = MaxA, MinCurr = CurrA
             ;   MinBarrel = "C", MinMax = MaxC, MinCurr = CurrC
             ),
             NewMin is MinCurr + OverflowB,
@@ -94,7 +94,11 @@ El predicado `addBeer` modela la acción de añadir cerveza a un barril específ
 ### 4 - Solución
 ```{prolog}
 all_solutions(Goal, Result):-
-    Solutions0 = [],
+    (barrel(_, _, Beer), Beer >= Goal
+    -> Solutions0 = [(0, "N/A")]
+    ; Solutions0 = []
+    ),
+
     % 1. Desde A: llenar A
     barrel("A", CapA, CurrA),
     NeedA is Goal - CurrA,
@@ -156,8 +160,10 @@ all_solutions(Goal, Result):-
         )
     ;   Solutions6 = Solutions5
     ),
+    
     % Filtrar soluciones válidas (ya filtradas arriba)
     Result = Solutions6.
+
 
 findSolution(Goal, SolutionType, Result) :-
     number(Goal),
@@ -165,13 +171,8 @@ findSolution(Goal, SolutionType, Result) :-
     var(Result),
     Goal >= 0,
     (SolutionType = "best"; SolutionType="all"),
-    (   (forall(barrel(_, _, Beer), Beer >= Goal);
-            (
-            SolutionType = "best",
-            barrel(_, _, Beer), Beer >= Goal
-            )
-        )
-    ->  Result = (0, "N/A"),!
+    ( forall(barrel(_, _, Beer), Beer >= Goal)
+    ->  Result = (0, "N/A")
     ; 
         all_solutions(Goal,List),
         ( SolutionType = "best" ->
@@ -186,6 +187,7 @@ findSolution(Goal, SolutionType, Result) :-
             )
         )
     ).
+
 ```
 El predicado `findSolution` es el encargado de determinar la cantidad óptima de cerveza que debe agregarse a los barriles para servir exactamente una cantidad objetivo de vasos. Su funcionamiento se basa en dos modos: encontrar la mejor solución (`best`), es decir, la que requiere agregar la menor cantidad de cerveza posible, o listar todas las soluciones válidas (`all`). 
 

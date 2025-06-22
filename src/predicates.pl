@@ -35,9 +35,6 @@ validate_barrel(_ID, Cap, Beer, ValidCap, ValidBeer) :-
     ;   ValidCap = Cap, ValidBeer = 0
     ).
 
-barrel("A", 10, 3). 
-barrel("B", 7, 0).   
-barrel("C", 4, 0).
 
 addBeer(Barrel, Beer, Transfer) :-
     string(Barrel),
