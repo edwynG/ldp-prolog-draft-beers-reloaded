@@ -81,7 +81,11 @@ addBeer(Barrel, Beer, Transfer) :-
 
 
 all_solutions(Goal, Result):-
-    Solutions0 = [],
+    (barrel(_, _, Beer), Beer >= Goal
+    -> Solutions0 = [(0, "N/A")]
+    ; Solutions0 = []
+    ),
+
     % 1. Desde A: llenar A
     barrel("A", CapA, CurrA),
     NeedA is Goal - CurrA,
@@ -154,13 +158,8 @@ findSolution(Goal, SolutionType, Result) :-
     var(Result),
     Goal >= 0,
     (SolutionType = "best"; SolutionType="all"),
-    (   (forall(barrel(_, _, Beer), Beer >= Goal);
-            (
-            SolutionType = "best",
-            barrel(_, _, Beer), Beer >= Goal
-            )
-        )
-    ->  Result = (0, "N/A"),!
+    ( forall(barrel(_, _, Beer), Beer >= Goal)
+    ->  Result = (0, "N/A")
     ; 
         all_solutions(Goal,List),
         ( SolutionType = "best" ->
