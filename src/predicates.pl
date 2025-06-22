@@ -5,7 +5,7 @@
 
 % Predicado principal para inicializar barriles
 initialBarrels(Barrels, Capacities, Beers) :-
-    Barrels = ["A", "B", "C"], % Unificar directamente
+    Barrels = ["A", "B", "C"], % Unificar
     Capacities = [Cap1, Cap2, Cap3],
     Beers = [Beer1, Beer2, Beer3],
     retractall(barrel(_, _, _)),
@@ -38,7 +38,7 @@ process_barrel(ID, Cap, Beer) :-
         transfer_excess(ID, Excess, 0)
     ).
 
-% Transferir exceso según las conexiones A <-> B <-> C, con límite de profundidad
+% Transferir exceso según las conexiones A <-> B <-> C
 transfer_excess(_, _, Depth) :- Depth >= 10, !. % Límite para evitar bucle infinito
 transfer_excess("A", Excess, Depth) :-
     barrel("B", CapB, CurrB),
