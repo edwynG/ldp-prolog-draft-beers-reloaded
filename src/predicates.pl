@@ -45,15 +45,15 @@ addBeer(Barrel, Beer, Transfer) :-
     var(Transfer),
     Beer >= 0,
     not(Barrel = "B"),
-    barrel(Barrel, MaxA, CurrA),
-    NewA is CurrA + Beer,
-    (   NewA =< MaxA
-    ->  retract(barrel(Barrel, MaxA, CurrA)),
-        assertz(barrel(Barrel, MaxA, NewA)),
+    barrel(Barrel, Max, Curr),
+    New is Curr + Beer,
+    (   New =< Max
+    ->  retract(barrel(Barrel, Max, Curr)),
+        assertz(barrel(Barrel, Max, New)),
         Transfer = 0
-    ;   Overflow is NewA - MaxA,
-        retract(barrel(Barrel, MaxA, CurrA)),
-        assertz(barrel(Barrel, MaxA, MaxA)),
+    ;   Overflow is New - Max,
+        retract(barrel(Barrel, Max, Curr)),
+        assertz(barrel(Barrel, Max, Max)),
         barrel("B", MaxB, CurrB),
         NewB is CurrB + Overflow,
         (   NewB =< MaxB
@@ -62,10 +62,10 @@ addBeer(Barrel, Beer, Transfer) :-
         ;   OverflowB is NewB - MaxB,
             retract(barrel("B", MaxB, CurrB)),
             assertz(barrel("B", MaxB, MaxB)),
-            barrel("A", MaxA2, CurrA2),
+            barrel("A", MaxA, CurrA),
             barrel("C", MaxC, CurrC),
-            (   CurrA2 =< CurrC
-            ->  MinBarrel = "A", MinMax = MaxA2, MinCurr = CurrA2
+            (   CurrA =< CurrC
+            ->  MinBarrel = "A", MinMax = MaxA, MinCurr = CurrA
             ;   MinBarrel = "C", MinMax = MaxC, MinCurr = CurrC
             ),
             NewMin is MinCurr + OverflowB,
