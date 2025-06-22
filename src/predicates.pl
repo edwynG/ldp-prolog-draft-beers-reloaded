@@ -1,30 +1,88 @@
 % Modulo para funciones del proyecto
-:- module(predicates, [initialBarrels/3, validate_barrel/5, addBeer/3, findSolution/3]). 
+:- module(predicates, [initialBarrels/3, iSolution/3, addBeer/3, findSolution/3, barrel/3]). 
 
 :- dynamic barrel/3.
 
 % Predicado principal para inicializar barriles
 initialBarrels(Barrels, Capacities, Beers) :-
-    Barrels = [ID1, ID2, ID3],
+    Barrels = ["A", "B", "C"], % Unificar directamente
     Capacities = [Cap1, Cap2, Cap3],
     Beers = [Beer1, Beer2, Beer3],
-    Barrels = ["A", "B", "C"],
-    (   validate_barrel(ID1, Cap1, Beer1, ValidCap1, ValidBeer1),
-        validate_barrel(ID2, Cap2, Beer2, ValidCap2, ValidBeer2),
-        validate_barrel(ID3, Cap3, Beer3, ValidCap3, ValidBeer3)
-    ->  retractall(barrel(_, _, _)),
-        assertz(barrel(ID1, ValidCap1, ValidBeer1)),
-        assertz(barrel(ID2, ValidCap2, ValidBeer2)),
-        assertz(barrel(ID3, ValidCap3, ValidBeer3))
-    ;   false
+    retractall(barrel(_, _, _)),
+    assertz(barrel("A", Cap1, 0)),
+    assertz(barrel("B", Cap2, 0)),
+    assertz(barrel("C", Cap3, 0)),
+    validate_and_update_barrels(["A", "B", "C"], [Cap1, Cap2, Cap3], [Beer1, Beer2, Beer3]).
+
+% Predicado auxiliar para validar y actualizar barriles con desbordes
+validate_and_update_barrels(["A", "B", "C"], [Cap1, Cap2, Cap3], [Beer1, Beer2, Beer3]) :-
+    number(Cap1), number(Cap2), number(Cap3),
+    number(Beer1), number(Beer2), number(Beer3),
+    Cap1 >= 0, Cap2 >= 0, Cap3 >= 0,
+    Beer1 >= 0, Beer2 >= 0, Beer3 >= 0,
+    process_barrel("A", Cap1, Beer1),
+    process_barrel("B", Cap2, Beer2),
+    process_barrel("C", Cap3, Beer3),
+    !. % Corte para garantizar determinismo
+
+% Procesar un barril y manejar desbordes
+process_barrel(ID, Cap, Beer) :-
+    barrel(ID, Cap, CurrBeer),
+    NewBeer is CurrBeer + Beer,
+    (   NewBeer =< Cap
+    ->  retract(barrel(ID, Cap, CurrBeer)),
+        assertz(barrel(ID, Cap, NewBeer))
+    ;   Excess is NewBeer - Cap,
+        retract(barrel(ID, Cap, CurrBeer)),
+        assertz(barrel(ID, Cap, Cap)),
+        transfer_excess(ID, Excess, 0)
     ).
 
-validate_barrel(ID, Cap, Beer, ValidCap, ValidBeer) :-
-    member(ID, ["A", "B", "C"]),
-    number(Cap), number(Beer),
-    Cap >= 0,
-    Beer >= 0,
-    (Beer =< Cap -> ValidBeer = Beer, ValidCap = Cap ; ValidBeer = Cap, ValidCap = Cap).
+% Transferir exceso según las conexiones A <-> B <-> C, con límite de profundidad
+transfer_excess(_, _, Depth) :- Depth >= 10, !. % Límite para evitar bucle infinito
+transfer_excess("A", Excess, Depth) :-
+    barrel("B", CapB, CurrB),
+    NewB is CurrB + Excess,
+    NewDepth is Depth + 1,
+    (   NewB =< CapB
+    ->  retract(barrel("B", CapB, CurrB)),
+        assertz(barrel("B", CapB, NewB))
+    ;   ExcessB is NewB - CapB,
+        retract(barrel("B", CapB, CurrB)),
+        assertz(barrel("B", CapB, CapB)),
+        transfer_excess("B", ExcessB, NewDepth)
+    ).
+
+transfer_excess("C", Excess, Depth) :-
+    barrel("B", CapB, CurrB),
+    NewB is CurrB + Excess,
+    NewDepth is Depth + 1,
+    (   NewB =< CapB
+    ->  retract(barrel("B", CapB, CurrB)),
+        assertz(barrel("B", CapB, NewB))
+    ;   ExcessB is NewB - CapB,
+        retract(barrel("B", CapB, CurrB)),
+        assertz(barrel("B", CapB, CapB)),
+        transfer_excess("B", ExcessB, NewDepth)
+    ).
+
+transfer_excess("B", Excess, Depth) :-
+    barrel("A", CapA, CurrA),
+    barrel("C", CapC, CurrC),
+    NewDepth is Depth + 1,
+    (   CurrA =< CurrC
+    ->  Target = "A", TargetCap = CapA, TargetCurr = CurrA
+    ;   Target = "C", TargetCap = CapC, TargetCurr = CurrC
+    ),
+    NewTarget is TargetCurr + Excess,
+    (   NewTarget =< TargetCap
+    ->  retract(barrel(Target, TargetCap, TargetCurr)),
+        assertz(barrel(Target, TargetCap, NewTarget))
+    ;   ExcessTarget is NewTarget - TargetCap,
+        retract(barrel(Target, TargetCap, TargetCurr)),
+        assertz(barrel(Target, TargetCap, TargetCap)),
+        transfer_excess(Target, ExcessTarget, NewDepth)
+    ).
 
 % Predicado iSolution/3
 iSolution(Barrel, Beer, Goal) :-
@@ -218,6 +276,3 @@ findSolution(Goal, SolutionType, Result) :-
             )
         )
     ).
-
-
-
