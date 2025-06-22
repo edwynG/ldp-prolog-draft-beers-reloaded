@@ -116,7 +116,7 @@ all_solutions(Goal, Result):-
         
     % 4. Desde C: llenar C
     barrel("C", CapC2, CurrC2),
-    OverflowC is CapC - CurrC,
+    OverflowC is CapC2 - CurrC2,
     NeedC2 is Goal - CurrC2,
     (NeedC2 > 0, CurrC2 + NeedC2 =< CapC2 ->
         Solutions4 = [(NeedC2, "C")|Solutions3]
@@ -154,7 +154,12 @@ findSolution(Goal, SolutionType, Result) :-
     var(Result),
     Goal >= 0,
     (SolutionType = "best"; SolutionType="all"),
-    (   barrel(_, _, Beer), Beer >= Goal
+    (   (forall(barrel(_, _, Beer), Beer >= Goal);
+            (
+            SolutionType = "best",
+            barrel(_, _, Beer), Beer >= Goal
+            )
+        )
     ->  Result = (0, "N/A"),!
     ; 
         all_solutions(Goal,List),
