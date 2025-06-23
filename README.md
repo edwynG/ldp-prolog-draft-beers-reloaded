@@ -49,150 +49,103 @@ El programa simula el proceso de llenado y desborde de los barriles, considerand
 
 ### 1- Inicializacion de barriles 
 ```{prolog}
-initialBarrels(Barrels, Capacities, Beers) :-
-    Barrels = ["A", "B", "C"], % Unificar
-    Capacities = [Cap1, Cap2, Cap3],
-    Beers = [Beer1, Beer2, Beer3],
+initialBarrels(["A", "B", "C"], [CA, CB, CC], [BA0, BB0, BC0]) :-
+    maplist(valid_number, [CA, CB, CC, BA0, BB0, BC0]),
     retractall(barrel(_, _, _)),
-    assertz(barrel("A", Cap1, 0)),
-    assertz(barrel("B", Cap2, 0)),
-    assertz(barrel("C", Cap3, 0)),
-    validate_and_update_barrels(["A", "B", "C"], [Cap1, Cap2, Cap3], [Beer1, Beer2, Beer3]).
+    cascade_fix(CA, CB, CC, BA0, BB0, BC0, FinalA, FinalB, FinalC),
+    FinalA =< CA, FinalB =< CB, FinalC =< CC,
+    assertz(barrel("A", CA, FinalA)),
+    assertz(barrel("B", CB, FinalB)),
+    assertz(barrel("C", CC, FinalC)).
 
-validate_and_update_barrels(["A", "B", "C"], [Cap1, Cap2, Cap3], [Beer1, Beer2, Beer3]) :-
-    number(Cap1), number(Cap2), number(Cap3),
-    number(Beer1), number(Beer2), number(Beer3),
-    Cap1 >= 0, Cap2 >= 0, Cap3 >= 0,
-    Beer1 >= 0, Beer2 >= 0, Beer3 >= 0,
-    process_barrel("A", Cap1, Beer1),
-    process_barrel("B", Cap2, Beer2),
-    process_barrel("C", Cap3, Beer3),
-    !. % Corte para garantizar determinismo
-
-process_barrel(ID, Cap, Beer) :-
-    barrel(ID, Cap, CurrBeer),
-    NewBeer is CurrBeer + Beer,
-    (   NewBeer =< Cap
-    ->  retract(barrel(ID, Cap, CurrBeer)),
-        assertz(barrel(ID, Cap, NewBeer))
-    ;   Excess is NewBeer - Cap,
-        retract(barrel(ID, Cap, CurrBeer)),
-        assertz(barrel(ID, Cap, Cap)),
-        transfer_excess(ID, Excess, 0)
+cascade_fix(CA, CB, CC, A, B, C, FA, FB, FC) :-
+    fix_once(CA, CB, CC, A, B, C, NA, NB, NC),
+    ( A = NA, B = NB, C = NC ->
+        FA = A, FB = B, FC = C
+    ; cascade_fix(CA, CB, CC, NA, NB, NC, FA, FB, FC)
     ).
 
-transfer_excess(_, _, Depth) :- Depth >= 10, !. % Límite para evitar bucle infinito
-transfer_excess("A", Excess, Depth) :-
-    barrel("B", CapB, CurrB),
-    NewB is CurrB + Excess,
-    NewDepth is Depth + 1,
-    (   NewB =< CapB
-    ->  retract(barrel("B", CapB, CurrB)),
-        assertz(barrel("B", CapB, NewB))
-    ;   ExcessB is NewB - CapB,
-        retract(barrel("B", CapB, CurrB)),
-        assertz(barrel("B", CapB, CapB)),
-        transfer_excess("B", ExcessB, NewDepth)
-    ).
+% - A y C transfieren exceso a B
+% - B transfiere exceso a barril con menos cerveza (A o C)
+fix_once(CA, CB, CC, A0, B0, C0, A2, B2, C2) :-
+    % Desborde de A y C hacia B
+    excess(A0, CA, EA, A1),
+    excess(C0, CC, EC, C1),
+    B1Temp is B0 + EA + EC,
 
-transfer_excess("C", Excess, Depth) :-
-    barrel("B", CapB, CurrB),
-    NewB is CurrB + Excess,
-    NewDepth is Depth + 1,
-    (   NewB =< CapB
-    ->  retract(barrel("B", CapB, CurrB)),
-        assertz(barrel("B", CapB, NewB))
-    ;   ExcessB is NewB - CapB,
-        retract(barrel("B", CapB, CurrB)),
-        assertz(barrel("B", CapB, CapB)),
-        transfer_excess("B", ExcessB, NewDepth)
-    ).
-
-transfer_excess("B", Excess, Depth) :-
-    barrel("A", CapA, CurrA),
-    barrel("C", CapC, CurrC),
-    NewDepth is Depth + 1,
-    (   CurrA =< CurrC
-    ->  Target = "A", TargetCap = CapA, TargetCurr = CurrA
-    ;   Target = "C", TargetCap = CapC, TargetCurr = CurrC
+    % Desborde de B hacia el barril con menor cantidad
+    excess(B1Temp, CB, EB, B1),
+    ( A1 =< C1 ->
+        free_space(A1, CA, FA),
+        Transfer is min(EB, FA),
+        A2 is A1 + Transfer,
+        C2 = C1
+    ;
+        free_space(C1, CC, FC),
+        Transfer is min(EB, FC),
+        C2 is C1 + Transfer,
+        A2 = A1
     ),
-    NewTarget is TargetCurr + Excess,
-    (   NewTarget =< TargetCap
-    ->  retract(barrel(Target, TargetCap, TargetCurr)),
-        assertz(barrel(Target, TargetCap, NewTarget))
-    ;   ExcessTarget is NewTarget - TargetCap,
-        retract(barrel(Target, TargetCap, TargetCurr)),
-        assertz(barrel(Target, TargetCap, TargetCap)),
-        transfer_excess(Target, ExcessTarget, NewDepth)
-    ).
+    B2 = B1.
+
+% Calcula el exceso si se pasa de la capacidad, devuelve el valor fijo
+excess(Value, Max, Excess, Fixed) :-
+    (Value > Max -> Excess is Value - Max, Fixed is Max ; Excess = 0, Fixed = Value).
+
+% Calcula el espacio libre en un barril
+free_space(Current, Capacity, Free) :-
+    Free is Capacity - Current.
+
+% Verifica que sea un número entero no negativo
+valid_number(N) :-
+    integer(N), N >= 0.
 ```
-El predicado `initialBarrels` inicializa el sistema de barriles, unificando la lista de barriles con ["A", "B", "C"] y asociando a cada uno las capacidades y cantidades iniciales de cerveza proporcionadas en las listas Capacities y Beers. 
-El proceso comienza limpiando el estado previo mediante `retractall`, que elimina todos los hechos dinámicos existentes relacionados con barriles en la base de conocimientos. Posteriormente, se crean nuevos hechos dinámicos `barrel` para cada barril, asignándoles su capacidad correspondiente y un volumen inicial de cerveza de cero.
-Finalmente, el predicado invoca `validate_and_update_barrels`, un auxiliar que valida las cantidades de cerveza iniciales y las procesa, gestionando posibles desbordes según las reglas de transferencia automática entre barriles, asegurando así una distribución correcta del líquido.
+El predicado `initialBarrels` se encarga de inicializar el estado del sistema de barriles, definiendo dinámicamente los hechos barrel(ID, Capacidad, CantidadActual) en la base de conocimientos.
+Este predicado recibe tres listas como argumentos: una lista fija de identificadores de barril: ["A", "B", "C"], una lista de capacidades máximas: [CapA, CapB, CapC] y una lista con las cantidades iniciales de cerveza en litros: [CervezaA, CervezaB, CervezaC].
+Se verifica que todos los elementos sean números enteros no negativos mediante `maplist`.
+Si alguna cantidad inicial excede la capacidad del barril, el exceso se transfiere automáticamente a otros barriles siguiendo una política de desbordes, implementada en `cascade_fix`.
 
 ### - Existe solucion 
 ```{prolog}
 iSolution(Barrel, Beer, Goal) :-
-    % Validaciones
-    (Barrel == "A" ; Barrel == "C"),
-    number(Beer), Beer >= 0,
-    number(Goal), Goal >= 0,
-    
-    % Obtenemos el estado inicial
-    barrel("A", CapA, A0),
-    barrel("B", CapB, B0),
-    barrel("C", CapC, C0),
-    
-    % Simulamos agregar cerveza con propagación de desbordes
-    add_with_propagation(Barrel, Beer, [A0, B0, C0], [CapA, CapB, CapC], [A1, B1, C1], 0),
-    
-    % Verificamos si algún barril cumple con la meta
-    (   A1 >= Goal
-    ;   B1 >= Goal
-    ;   C1 >= Goal
+    % Guardar capacidades y estado actual
+    barrel("A", CA, BA),
+    barrel("B", CB, BB),
+    barrel("C", CC, BC),
+
+    % Limpiar base de conocimientos
+    retractall(barrel(_, _, _)),
+
+    % Agregar cerveza según el barril destino
+    (
+        Barrel = "A" -> NewBA is BA + Beer, NewBB = BB, NewBC = BC ;
+        Barrel = "C" -> NewBC is BC + Beer, NewBA = BA, NewBB = BB ;
+        fail  % solo A o C permiten agregar cerveza
     ),
-    !. 
 
-% Reglas de propagación
-add_with_propagation(_, _, State, _, State, Depth) :- Depth >= 10, !.
-add_with_propagation(_, 0, State, _, State, _) :- !.
+    % Manejo de desbordes en cascada
+    cascade_fix(CA, CB, CC, NewBA, NewBB, NewBC, FinalA, FinalB, FinalC),
 
-add_with_propagation("A", Amount, [A0, B0, C0], [CapA, CapB, CapC], FinalState, Depth) :-
-    Total is A0 + Amount,
-    (Total =< CapA
-        -> FinalState = [Total, B0, C0]
-        ;  A1 is CapA,
-           Excess is Total - CapA,
-           NewDepth is Depth + 1,
-           add_with_propagation("B", Excess, [A1, B0, C0], [CapA, CapB, CapC], FinalState, NewDepth)
-    ).
+    % Restaurar nuevo estado corregido
+    assertz(barrel("A", CA, FinalA)),
+    assertz(barrel("B", CB, FinalB)),
+    assertz(barrel("C", CC, FinalC)),
 
-add_with_propagation("C", Amount, [A0, B0, C0], [CapA, CapB, CapC], FinalState, Depth) :-
-    Total is C0 + Amount,
-    (Total =< CapC
-        -> FinalState = [A0, B0, Total]
-        ;  C1 is CapC,
-           Excess is Total - CapC,
-           NewDepth is Depth + 1,
-           add_with_propagation("B", Excess, [A0, B0, C1], [CapA, CapB, CapC], FinalState, NewDepth)
-    ).
-
-add_with_propagation("B", Amount, [A0, B0, C0], [CapA, CapB, CapC], FinalState, Depth) :-
-    Total is B0 + Amount,
-    (Total =< CapB
-        -> FinalState = [A0, Total, C0]
-        ;  B1 is CapB,
-           Excess is Total - CapB,
-           (A0 =< C0 -> Target = "A" ; Target = "C"),
-           NewDepth is Depth + 1,
-           add_with_propagation(Target, Excess, [A0, B1, C0], [CapA, CapB, CapC], FinalState, NewDepth)
-    ).
+    % Verificar si existe solución en algún barril
+    (
+        FinalA >= Goal ;
+        FinalB >= Goal ;
+        FinalC >= Goal
+    ),
+    !.
 ```
-El predicado `iSolution` gestiona la adición de una cantidad de cerveza a un barril específico (que puede ser "A" o "C") y verifica si, tras propagar posibles desbordes, al menos uno de los barriles (A, B o C) alcanza o supera una cantidad objetivo de cerveza.
-El proceso inicia validando que el barril sea "A" o "C", y que tanto Beer como Goal sean números no negativos. Luego, consulta el estado inicial de los barriles A, B y C (capacidades y cantidades actuales de cerveza) desde la base de conocimientos mediante el hecho `barrel`.
-Posteriormente, invoca el predicado auxiliar `add_with_propagation` para simular la adición de la cerveza al barril especificado, manejando desbordes según las conexiones. Este predicado actualiza las cantidades de cerveza en los barriles, redistribuyendo cualquier exceso al barril conectado (A → B, C → B, B → A o C, según cuál tenga menos cerveza).
-Finalmente, el predicado verifica si la cantidad de cerveza en alguno de los barriles (A, B o C) alcanza o supera el objetivo (Goal). Un corte (!) asegura que el predicado sea determinista, deteniendo la búsqueda tras encontrar una solución válida.
-
+El predicado `iSolution` determina si es posible alcanzar una cantidad objetivo (Goal) de cerveza en alguno de los barriles, luego de agregar una cantidad Beer de cerveza al barril indicado (Barrel), tomando en cuenta el manejo de desbordes en cascada.
+Se recupera el estado actual de los tres barriles mediante los hechos dinámicos `barrel`.
+Se agrega la cerveza a A o C según el parámetro Barrel. Si se intenta usar "B", el predicado falla.
+Se aplica el manejo de desbordes mediante `cascade_fix`, que redistribuye el exceso de cerveza entre los barriles conforme a las reglas del sistema:
+Desbordes en A o C se transfieren a B.
+Desbordes en B se transfieren al barril con menor cantidad entre A y C.
+Finalmente, se verifica si alguno de los barriles contiene al menos Goal litros. Si es así, se retorna true y se detiene la ejecución con el operador de corte (!) para evitar múltiples soluciones o esperas innecesarias.
 
 
 ### 3 - Añadir cerveza
