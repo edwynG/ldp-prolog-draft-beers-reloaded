@@ -1,3 +1,6 @@
+% Modulo para funciones del proyecto
+:- module(predicates, [initialBarrels/3, iSolution/3, addBeer/3, findSolution/3, barrel/3]). 
+
 :- dynamic barrel/3.
 
 % Predicado principal para inicializar barriles
