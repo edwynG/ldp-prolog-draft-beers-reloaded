@@ -1,11 +1,9 @@
-% Modulo para funciones del proyecto
-:- module(predicates, [initialBarrels/3, iSolution/3, addBeer/3, findSolution/3, barrel/3]). 
-
 :- dynamic barrel/3.
 
 % Predicado principal para inicializar barriles
 initialBarrels(["A", "B", "C"], [CA, CB, CC], [BA0, BB0, BC0]) :-
     maplist(valid_number, [CA, CB, CC, BA0, BB0, BC0]),
+    CA > 0, CB > 0, CC > 0,
     retractall(barrel(_, _, _)),
     cascade_fix(CA, CB, CC, BA0, BB0, BC0, FinalA, FinalB, FinalC),
     FinalA =< CA, FinalB =< CB, FinalC =< CC,
@@ -58,36 +56,24 @@ valid_number(N) :-
 % Predicado para iSolution
 % Verifica si al agregar Beer al Barrel, es posible alcanzar Goal litros en algún barril
 iSolution(Barrel, Beer, Goal) :-
-    % Guardar capacidades y estado actual
     barrel("A", CA, BA),
     barrel("B", CB, BB),
     barrel("C", CC, BC),
-
-    % Limpiar base de conocimientos
-    retractall(barrel(_, _, _)),
 
     % Agregar cerveza según el barril destino
     (
         Barrel = "A" -> NewBA is BA + Beer, NewBB = BB, NewBC = BC ;
         Barrel = "C" -> NewBC is BC + Beer, NewBA = BA, NewBB = BB ;
-        fail  % solo A o C permiten agregar cerveza
+        fail
     ),
 
-    % Manejo de desbordes en cascada
+    % Aplicar cascade_fix simulando sin tocar la base
     cascade_fix(CA, CB, CC, NewBA, NewBB, NewBC, FinalA, FinalB, FinalC),
 
-    % Restaurar nuevo estado corregido
-    assertz(barrel("A", CA, FinalA)),
-    assertz(barrel("B", CB, FinalB)),
-    assertz(barrel("C", CC, FinalC)),
-
-    % Verificar si existe solución en algún barril
-    (
-        FinalA >= Goal ;
-        FinalB >= Goal ;
-        FinalC >= Goal
-    ),
+    % Verificar si se alcanza el objetivo
+    ( FinalA >= Goal ; FinalB >= Goal ; FinalC >= Goal ),
     !.
+
 
 % Predicado para agregar cerveza a un barril
 addBeer(Barrel, Beer, Transfer) :-
@@ -208,7 +194,7 @@ findSolution(Goal, SolutionType, Result) :-
     Goal >= 0,
     (SolutionType = "best"; SolutionType="all"),
     ( forall(barrel(_, _, Beer), Beer >= Goal)
-    ->  Result = (0, "N/A")
+    ->  Result = (0, "N/A"),!
     ; 
         all_solutions(Goal,List),
         ( SolutionType = "best" ->

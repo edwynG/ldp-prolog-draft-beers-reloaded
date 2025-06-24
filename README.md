@@ -51,6 +51,7 @@ El programa simula el proceso de llenado y desborde de los barriles, considerand
 ```{prolog}
 initialBarrels(["A", "B", "C"], [CA, CB, CC], [BA0, BB0, BC0]) :-
     maplist(valid_number, [CA, CB, CC, BA0, BB0, BC0]),
+    CA > 0, CB > 0, CC > 0,
     retractall(barrel(_, _, _)),
     cascade_fix(CA, CB, CC, BA0, BB0, BC0, FinalA, FinalB, FinalC),
     FinalA =< CA, FinalB =< CB, FinalC =< CC,
@@ -101,9 +102,9 @@ valid_number(N) :-
     integer(N), N >= 0.
 ```
 El predicado `initialBarrels` se encarga de inicializar el estado del sistema de barriles, definiendo dinámicamente los hechos barrel(ID, Capacidad, CantidadActual) en la base de conocimientos.
-Este predicado recibe tres listas como argumentos: una lista fija de identificadores de barril: ["A", "B", "C"], una lista de capacidades máximas: [CapA, CapB, CapC] y una lista con las cantidades iniciales de cerveza en litros: [CervezaA, CervezaB, CervezaC].
+Este predicado recibe tres listas como argumentos: una lista fija de identificadores de barril: ["A", "B", "C"], una lista de capacidades máximas: [CapA, CapB, CapC] estas siendo estrictamente mayores a cero y una lista con las cantidades iniciales de cerveza en litros: [CervezaA, CervezaB, CervezaC].
 Se verifica que todos los elementos sean números enteros no negativos mediante `maplist`.
-Si alguna cantidad inicial excede la capacidad del barril, el exceso se transfiere automáticamente a otros barriles siguiendo una política de desbordes, implementada en `cascade_fix`.
+Si alguna cantidad inicial excede la capacidad del barril, el exceso se transfiere automáticamente a otros barriles siguiendo una política de desbordes, implementada en `cascade_fix`, en donde se toma en cuenta la conexion entre los barriles, y que B tiene que trasnferir la cerveza que se desborde a el barril que contenga menos cerveza. 
 
 ### - Existe solucion 
 ```{prolog}
@@ -273,7 +274,7 @@ findSolution(Goal, SolutionType, Result) :-
     Goal >= 0,
     (SolutionType = "best"; SolutionType="all"),
     ( forall(barrel(_, _, Beer), Beer >= Goal)
-    ->  Result = (0, "N/A")
+    ->  Result = (0, "N/A"),!
     ; 
         all_solutions(Goal,List),
         ( SolutionType = "best" ->
